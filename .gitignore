@@ -30,3 +30,21 @@
 *.exe
 *.out
 *.app
+
+# Dependencies directory
+Dependencies/*
+
+# Ignore build directories
+Debug/
+Release/
+x64/
+x86/
+
+# Ignore Visual Studio temporary files
+*.vcxproj.user
+*.vcxproj.filters
+*.opensdf
+*.sdf
+*.suo
+*.user
+.vs/
