@@ -7,32 +7,29 @@
 
 namespace fs = std::filesystem;
 
-// Function to get the path to the Documents folder using Windows API
-fs::path getEnv(LPCSTR variableName) {
-	char envVariableValue[MAX_PATH];
-	DWORD length = GetEnvironmentVariableA(variableName, envVariableValue, MAX_PATH);
-
-	if (length == 0 || length >= MAX_PATH) {
-		throw std::runtime_error("Failed to retrieve environment variable.");
-	}
-
-	return envVariableValue;
-}
-
+/**
+ * Funzione che restituisce il percorso della cartella Documenti dell'utente attuale.
+ * 
+ * @return Percorso della cartella Documenti
+ */
 fs::path getDocumentsFolderPath() {
 	PWSTR path = nullptr;
-	// Retrieve the path to the Documents folder
 	if (SHGetKnownFolderPath(FOLDERID_Documents, 0, NULL, &path) != S_OK) {
 		throw std::runtime_error("Failed to retrieve Documents folder path.");
 	}
 
-	// Convert wide string to std::filesystem::path
 	fs::path documentsPath = path;
-	CoTaskMemFree(path); // Free memory allocated by SHGetKnownFolderPath
+	CoTaskMemFree(path); // Liberazione della memoria allocata da SHGetKnownFolderPath
 	return documentsPath;
 }
 
-int loadACSConfig() {
+/**
+ * Carica una configurazione preipostata da far utilizzare ad Assetto Corsa.
+ * 
+ * Per farlo copia i file contenenti le impostazioni dentro la cartella di Assetto Corsa
+ * che si trova nella cartella Documenti dell'utente.
+ */
+void loadACSConfig() {
 	// Check if the source directory exists
 	fs::path sourcePath = "./static/cfg/";
 	if (!fs::exists(sourcePath) || !fs::is_directory(sourcePath)) {
@@ -62,6 +59,12 @@ int loadACSConfig() {
 	std::cout << "All configuration files copied successfully to " << destinationPath << ".\n";
 }
 
+/**
+ * Funzione che avvia la simulazione in Assetto Corsa, iniettando la DLL con il codice arbitrario
+ * 
+ * @param assettoCorsaDir Percorso della cartella di installazione di Assetto Corsa
+ * @param dll Percorso della DLL da iniettare
+ */
 void runAssettoCorsa(LPCWSTR assettoCorsaDir, LPCSTR dll) {
 	std::wstring assettoCorsaDirWString(assettoCorsaDir);
 	std::wstring targetExeWString = assettoCorsaDirWString + L"/acs.exe";
@@ -70,7 +73,7 @@ void runAssettoCorsa(LPCWSTR assettoCorsaDir, LPCSTR dll) {
 	STARTUPINFO si = { sizeof(si) };
 	PROCESS_INFORMATION pi = { 0 };
 
-	// Inject DLL file into the process
+	// Iniezione della DLL nel processo
 	BOOL result = DetourCreateProcessWithDlls(
 		targetExe,
 		NULL,
@@ -94,28 +97,35 @@ void runAssettoCorsa(LPCWSTR assettoCorsaDir, LPCSTR dll) {
 		std::cout << "Failed to create process. Error: " << GetLastError() << std::endl;
 	}
 	
-	// Wait for the process to exit.
+	// Attesa della fine del processo
 	WaitForSingleObject(pi.hProcess, INFINITE);
 
-	// Cleanup.
+	// Cleanup
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
 }
 
+/**
+ * Funzione main
+ * 
+ * @return Zero
+ */
 int main()
 {
-	// Config
+	// Variabili di configurazione
 	const LPCWSTR assettoCorsaDir = L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa";
 	const LPCSTR dll = "";
 	const BOOL useACSConfig = TRUE;
 
-	// Load settings for Assetto Corsa
+	// Caricamento delle impostazioni per Assetto Corsa
 	if (useACSConfig) {
 		loadACSConfig();
 	}
 
-	// Run Assetto Corsa
+	// Avvio di Assetto Corsa
 	std::cout << "Launching Assetto Corsa" << std::endl;
 	runAssettoCorsa(assettoCorsaDir, dll);
 	std::cout << "Simulator session ended" << std::endl;
+
+	return 0;
 }
