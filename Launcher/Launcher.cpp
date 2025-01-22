@@ -74,7 +74,7 @@ void runAssettoCorsa(LPCWSTR assettoCorsaDir, LPCSTR dll) {
 	PROCESS_INFORMATION pi = { 0 };
 
 	// Iniezione della DLL nel processo
-	BOOL result = DetourCreateProcessWithDlls(
+	BOOL result = DetourCreateProcessWithDllEx(
 		targetExe,
 		NULL,
 		NULL,
@@ -85,8 +85,7 @@ void runAssettoCorsa(LPCWSTR assettoCorsaDir, LPCSTR dll) {
 		assettoCorsaDir,
 		&si,
 		&pi,
-		0,
-		&dll,
+		dll,
 		NULL
 	);
 
@@ -114,7 +113,8 @@ int main()
 {
 	// Variabili di configurazione
 	const LPCWSTR assettoCorsaDir = L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa";
-	const LPCSTR dll = "";
+	const std::string dllAbsolutePath = fs::absolute("..\\MMR_Simulator_DLL\\x64\\Debug\\MMR_Simulator_DLL.dll").string();
+	const LPCSTR dll = dllAbsolutePath.c_str();
 	const BOOL useACSConfig = TRUE;
 
 	// Caricamento delle impostazioni per Assetto Corsa
