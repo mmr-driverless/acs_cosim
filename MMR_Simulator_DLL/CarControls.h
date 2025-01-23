@@ -7,7 +7,7 @@ public:
 	bool gearDn;
 	bool drs;
 	bool kers;
-	char* undefined0[0x20];
+	char undefined0[0x20];
 	float gas;
 	float brake;
 	float steer;
