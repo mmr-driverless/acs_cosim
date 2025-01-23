@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "MMRSimulatorDll.h"
 
-void dll_attached() {
+void dummy_function() {
     // Function implementation here
 }

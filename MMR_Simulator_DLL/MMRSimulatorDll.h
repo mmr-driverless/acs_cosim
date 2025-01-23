@@ -1,9 +1,9 @@
 #pragma once
 
-#ifdef MYDLL_EXPORTS
-#define MYDLL __declspec(dllexport)
+#ifdef MMR_SIMULATOR_DLL_EXPORTS
+#define MMR_SIMULATOR_API __declspec(dllexport)
 #else
-#define MYDLL __declspec(dllimport)
+#define MMR_SIMULATOR_API __declspec(dllimport)
 #endif
 
-extern "C" MYDLL void dll_attached();
+extern "C" MMR_SIMULATOR_API void dummy_function();
