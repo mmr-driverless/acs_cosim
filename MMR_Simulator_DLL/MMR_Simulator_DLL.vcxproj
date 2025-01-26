@@ -149,6 +149,7 @@
   <ItemGroup>
     <ClInclude Include="Car.h" />
     <ClInclude Include="CarControls.h" />
+    <ClInclude Include="CarPhysicsState.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="MMRSimulatorDll.h" />
     <ClInclude Include="pch.h" />

@@ -3,6 +3,7 @@
 #include "MMRSimulatorDll.h"
 #include "detours.h"
 #include "Car.h"
+#include "CarPhysicsState.h"
 #include <iostream>
 
 #include <fstream>
@@ -13,12 +14,14 @@
 const char* moduleName = "C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa\\acs.exe";
 const char* outputFile = ".\\acs_data.csv";
 
+// Hooked functions
 typedef void (*car_step_t)(Car*, float);
 car_step_t originalCarStepFunction;
+typedef void (*getCarPhysicsState_t)(Car*, CarPhysicsState*);
+getCarPhysicsState_t originalGetCarPhysicsStateFunction;
 
 void hookedCarStepFunction(Car* car, float param_1) {
 	try {
-		// Open file in the current directory
 		std::ofstream file(outputFile, std::ios::app);
 		if (!file.is_open()) {
 			throw std::ios_base::failure("Failed to open the file for writing.");
@@ -27,19 +30,51 @@ void hookedCarStepFunction(Car* car, float param_1) {
 		// Get current time
 		auto now = std::chrono::system_clock::now();
 
-		// Write data to file in CSV format
+		CarPhysicsState cps;
+		originalGetCarPhysicsStateFunction(car, &cps);
+
 		file
 			<< now.time_since_epoch().count() << ","
-			<< (car->controls).gas << ","
-			<< (car->controls).brake << ","
-			<< (car->controls).steer << ","
-			<< (car->accG).x << ","
-			<< (car->accG).y << ","
-			<< (car->accG).z << ","
-			<< (car->lastVelocity).x << ","
-			<< (car->lastVelocity).y << ","
-			<< (car->lastVelocity).z << ","
-			<< car->speed << std::endl;
+			<< cps.engineRPM << ","
+			<< cps.limiterRPM << ","
+			<< cps.steer << ","
+			<< cps.gas << ","
+			<< cps.brake << ","
+			<< cps.clutch << ","
+			<< cps.gear << ","
+			<< cps.speed.value << ","
+			<< cps.velocity.x << ","
+			<< cps.velocity.y << ","
+			<< cps.velocity.z << ","
+			<< cps.localVelocity.x << ","
+			<< cps.localVelocity.y << ","
+			<< cps.localVelocity.z << ","
+			<< cps.localAngularVelocity.x << ","
+			<< cps.localAngularVelocity.y << ","
+			<< cps.localAngularVelocity.z << ","
+			<< cps.angularVelocity.x << ","
+			<< cps.angularVelocity.y << ","
+			<< cps.angularVelocity.z << ","
+			<< cps.accG.x << ","
+			<< cps.accG.y << ","
+			<< cps.accG.z << ","
+			<< cps.worldMatrix.M11 << ","
+			<< cps.worldMatrix.M12 << ","
+			<< cps.worldMatrix.M13 << ","
+			<< cps.worldMatrix.M14 << ","
+			<< cps.worldMatrix.M21 << ","
+			<< cps.worldMatrix.M22 << ","
+			<< cps.worldMatrix.M23 << ","
+			<< cps.worldMatrix.M24 << ","
+			<< cps.worldMatrix.M31 << ","
+			<< cps.worldMatrix.M32 << ","
+			<< cps.worldMatrix.M33 << ","
+			<< cps.worldMatrix.M34 << ","
+			<< cps.worldMatrix.M41 << ","
+			<< cps.worldMatrix.M42 << ","
+			<< cps.worldMatrix.M43 << ","
+			<< cps.worldMatrix.M44
+			<< std::endl;
 		file.close();
 	}
 	catch (const std::exception& e) {
@@ -64,11 +99,17 @@ void dll_attached(HMODULE hModule) {
 		DetourUpdateThread(GetCurrentThread());
 		DetourAttach(&(PVOID&)originalCarStepFunction, hookedCarStepFunction);
 		DetourTransactionCommit();
-
-		std::cout << ">>> Successfully hooked Car::step" << std::endl;
 	}
 	else {
-		std::cerr << ">>> Failed to find function Car::step in module " << moduleName << std::endl;
+		std::cerr << "Failed to find function Car::step" << std::endl;
+	}
+
+	void* getCarPhysicsStateAddress = DetourFindFunction(moduleName, "Car::getPhysicsState");
+	if (getCarPhysicsStateAddress) {
+		originalGetCarPhysicsStateFunction = (getCarPhysicsState_t)getCarPhysicsStateAddress;
+	}
+	else {
+		std::cerr << "Failed to find function Car::getPhysicsState" << std::endl;
 	}
 }
 
