@@ -17,6 +17,7 @@ public:							// Offset
 	char undefined3[0xfc];
 	float speed;				// 0x3e90
 	float fuelKG;				// 0x3e94
+	bool externalControl;		// 0x3e98
 };
 
 #endif // CAR_H

@@ -3,6 +3,7 @@
 #include "MMRSimulatorDll.h"
 #include "detours.h"
 #include "Car.h"
+#include "CarControls.h"
 #include "CarPhysicsState.h"
 #include <iostream>
 
@@ -19,6 +20,48 @@ typedef void (*car_step_t)(Car*, float);
 car_step_t originalCarStepFunction;
 typedef void (*getCarPhysicsState_t)(Car*, CarPhysicsState*);
 getCarPhysicsState_t originalGetCarPhysicsStateFunction;
+typedef void (*carPollControls_t)(Car*, float);
+carPollControls_t originalCarPollControlsFunction;
+
+bool firstStep = true;
+int steerCounter = 0;
+float steer = -1;
+int gasCounter = 0;
+
+
+void hookedCarPollControls(Car* car, float period) {
+	// Call the original function
+	if (originalCarPollControlsFunction) {
+		originalCarPollControlsFunction(car, period);
+	}
+
+	// Take control of the car
+	if (firstStep) {
+		car->controls.steer = -1;
+
+		car->controls.clutch = 1;
+		car->controls.gearUp = true;
+		firstStep = false;
+		return;
+	}
+	else {
+		car->controls.clutch = 0;
+		car->controls.gearUp = false;
+	}
+
+	if (gasCounter > 3000) {
+		car->controls.gas = 1;
+	}
+
+	steerCounter++;
+	car->controls.steer = steer;
+	if (steerCounter > 500) {
+		steer = -steer;
+		steerCounter = 0;
+	}
+
+	gasCounter++;
+}
 
 void hookedCarStepFunction(Car* car, float param_1) {
 	try {
@@ -88,17 +131,10 @@ void hookedCarStepFunction(Car* car, float param_1) {
 }
 
 void dll_attached(HMODULE hModule) {
-	// Find the address of the PhysicsEngine::run function
+	// Ricerca delle funzioni
 	void* carStepAddress = DetourFindFunction(moduleName, "Car::step");
-
-	// Hook the function using Detours.
 	if (carStepAddress) {
 		originalCarStepFunction = (car_step_t)carStepAddress;
-
-		DetourTransactionBegin();
-		DetourUpdateThread(GetCurrentThread());
-		DetourAttach(&(PVOID&)originalCarStepFunction, hookedCarStepFunction);
-		DetourTransactionCommit();
 	}
 	else {
 		std::cerr << "Failed to find function Car::step" << std::endl;
@@ -110,6 +146,23 @@ void dll_attached(HMODULE hModule) {
 	}
 	else {
 		std::cerr << "Failed to find function Car::getPhysicsState" << std::endl;
+	}
+
+	void* acquireControlsAddress = DetourFindFunction(moduleName, "Car::pollControls");
+	if (acquireControlsAddress) {
+		originalCarPollControlsFunction = (carPollControls_t)acquireControlsAddress;
+	}
+	else {
+		std::cerr << "Failed to find function Car::pollControls" << std::endl;
+	}
+
+	// Hooking delle funzioni
+	if (carStepAddress && acquireControlsAddress) {
+		DetourTransactionBegin();
+		DetourUpdateThread(GetCurrentThread());
+		DetourAttach(&(PVOID&)originalCarStepFunction, hookedCarStepFunction);
+		DetourAttach(&(PVOID&)originalCarPollControlsFunction, hookedCarPollControls);
+		DetourTransactionCommit();
 	}
 }
 
