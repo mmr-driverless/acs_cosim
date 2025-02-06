@@ -16,18 +16,15 @@ const char* moduleName = "C:\\Program Files (x86)\\Steam\\steamapps\\common\\ass
 const char* outputFile = ".\\acs_data.csv";
 
 // Hooked functions
-typedef void (*car_step_t)(Car*, float);
-car_step_t originalCarStepFunction;
-typedef void (*getCarPhysicsState_t)(Car*, CarPhysicsState*);
-getCarPhysicsState_t originalGetCarPhysicsStateFunction;
-typedef void (*carPollControls_t)(Car*, float);
-carPollControls_t originalCarPollControlsFunction;
+typedef void (*getCarPhysicsStateT)(Car*, CarPhysicsState*);
+getCarPhysicsStateT getCarPhysicsState;
+typedef void (*carPollControlsT)(Car*, float);
+carPollControlsT originalCarPollControlsFunction;
 
 bool firstStep = true;
 int steerCounter = 0;
 float steer = -1;
 int gasCounter = 0;
-
 
 void hookedCarPollControls(Car* car, float period) {
 	// Call the original function
@@ -61,20 +58,18 @@ void hookedCarPollControls(Car* car, float period) {
 	}
 
 	gasCounter++;
-}
 
-void hookedCarStepFunction(Car* car, float param_1) {
 	try {
 		std::ofstream file(outputFile, std::ios::app);
 		if (!file.is_open()) {
 			throw std::ios_base::failure("Failed to open the file for writing.");
 		}
 
-		// Get current time
+		// Get current time and CarPhysicsState
 		auto now = std::chrono::system_clock::now();
 
 		CarPhysicsState cps;
-		originalGetCarPhysicsStateFunction(car, &cps);
+		getCarPhysicsState(car, &cps);
 
 		file
 			<< now.time_since_epoch().count() << ","
@@ -123,26 +118,13 @@ void hookedCarStepFunction(Car* car, float param_1) {
 	catch (const std::exception& e) {
 		std::cerr << "Error: " << e.what() << std::endl;
 	}
-
-	// Chiamata alla funzione originale
-	if (originalCarStepFunction) {
-		originalCarStepFunction(car, param_1);
-	}
 }
 
 void dll_attached(HMODULE hModule) {
 	// Ricerca delle funzioni
-	void* carStepAddress = DetourFindFunction(moduleName, "Car::step");
-	if (carStepAddress) {
-		originalCarStepFunction = (car_step_t)carStepAddress;
-	}
-	else {
-		std::cerr << "Failed to find function Car::step" << std::endl;
-	}
-
 	void* getCarPhysicsStateAddress = DetourFindFunction(moduleName, "Car::getPhysicsState");
 	if (getCarPhysicsStateAddress) {
-		originalGetCarPhysicsStateFunction = (getCarPhysicsState_t)getCarPhysicsStateAddress;
+		getCarPhysicsState = (getCarPhysicsStateT)getCarPhysicsStateAddress;
 	}
 	else {
 		std::cerr << "Failed to find function Car::getPhysicsState" << std::endl;
@@ -150,17 +132,16 @@ void dll_attached(HMODULE hModule) {
 
 	void* acquireControlsAddress = DetourFindFunction(moduleName, "Car::pollControls");
 	if (acquireControlsAddress) {
-		originalCarPollControlsFunction = (carPollControls_t)acquireControlsAddress;
+		originalCarPollControlsFunction = (carPollControlsT)acquireControlsAddress;
 	}
 	else {
 		std::cerr << "Failed to find function Car::pollControls" << std::endl;
 	}
 
 	// Hooking delle funzioni
-	if (carStepAddress && acquireControlsAddress) {
+	if (acquireControlsAddress) {
 		DetourTransactionBegin();
 		DetourUpdateThread(GetCurrentThread());
-		DetourAttach(&(PVOID&)originalCarStepFunction, hookedCarStepFunction);
 		DetourAttach(&(PVOID&)originalCarPollControlsFunction, hookedCarPollControls);
 		DetourTransactionCommit();
 	}
