@@ -3,6 +3,8 @@
 #include "MMRSimulatorDll.h"
 #include "detours.h"
 #include "Car.h"
+#include "CarControls.h"
+#include "CarPhysicsState.h"
 #include <iostream>
 
 #include <fstream>
@@ -11,61 +13,137 @@
 #include <string>
 
 const char* moduleName = "C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa\\acs.exe";
-const char* outputFile = ".\\acs_data.txt";
+const char* outputFile = ".\\acs_data.csv";
 
-typedef void (*car_step_t)(Car*, float);
-car_step_t originalCarStepFunction;
+// Hooked functions
+typedef void (*getCarPhysicsStateT)(Car*, CarPhysicsState*);
+getCarPhysicsStateT getCarPhysicsState;
+typedef void (*carPollControlsT)(Car*, float);
+carPollControlsT originalCarPollControlsFunction;
 
-void hookedCarStepFunction(Car* car, float param_1) {
+bool firstStep = true;
+int steerCounter = 0;
+float steer = -1;
+int gasCounter = 0;
+
+void hookedCarPollControls(Car* car, float period) {
+	// Call the original function
+	if (originalCarPollControlsFunction) {
+		originalCarPollControlsFunction(car, period);
+	}
+
+	// Take control of the car
+	if (firstStep) {
+		car->controls.steer = -1;
+
+		car->controls.clutch = 1;
+		car->controls.gearUp = true;
+		firstStep = false;
+		return;
+	}
+	else {
+		car->controls.clutch = 0;
+		car->controls.gearUp = false;
+	}
+
+	if (gasCounter > 3000) {
+		car->controls.gas = 1;
+	}
+
+	steerCounter++;
+	car->controls.steer = steer;
+	if (steerCounter > 500) {
+		steer = -steer;
+		steerCounter = 0;
+	}
+
+	gasCounter++;
+
 	try {
-		// Get current time
-		auto now = std::chrono::system_clock::now();
-		auto now_time_t = std::chrono::system_clock::to_time_t(now);
-
-		// Convert to local time using localtime_s
-		std::tm local_tm;
-		if (localtime_s(&local_tm, &now_time_t) != 0) {
-			throw std::runtime_error("Failed to convert time to local time.");
-		}
-
-		// Open file in the current directory
 		std::ofstream file(outputFile, std::ios::app);
 		if (!file.is_open()) {
 			throw std::ios_base::failure("Failed to open the file for writing.");
 		}
 
-		CarControls controls = car->controls;
-		// Write timestamp to the file in a human-readable format
-		file << std::put_time(&local_tm, "%Y-%m-%d %H:%M:%S") << " - " << controls.steer << " - " << controls.gas << std::endl;
+		// Get current time and CarPhysicsState
+		auto now = std::chrono::system_clock::now();
+
+		CarPhysicsState cps;
+		getCarPhysicsState(car, &cps);
+
+		file
+			<< now.time_since_epoch().count() << ","
+			<< cps.engineRPM << ","
+			<< cps.limiterRPM << ","
+			<< cps.steer << ","
+			<< cps.gas << ","
+			<< cps.brake << ","
+			<< cps.clutch << ","
+			<< cps.gear << ","
+			<< cps.speed.value << ","
+			<< cps.velocity.x << ","
+			<< cps.velocity.y << ","
+			<< cps.velocity.z << ","
+			<< cps.localVelocity.x << ","
+			<< cps.localVelocity.y << ","
+			<< cps.localVelocity.z << ","
+			<< cps.localAngularVelocity.x << ","
+			<< cps.localAngularVelocity.y << ","
+			<< cps.localAngularVelocity.z << ","
+			<< cps.angularVelocity.x << ","
+			<< cps.angularVelocity.y << ","
+			<< cps.angularVelocity.z << ","
+			<< cps.accG.x << ","
+			<< cps.accG.y << ","
+			<< cps.accG.z << ","
+			<< cps.worldMatrix.M11 << ","
+			<< cps.worldMatrix.M12 << ","
+			<< cps.worldMatrix.M13 << ","
+			<< cps.worldMatrix.M14 << ","
+			<< cps.worldMatrix.M21 << ","
+			<< cps.worldMatrix.M22 << ","
+			<< cps.worldMatrix.M23 << ","
+			<< cps.worldMatrix.M24 << ","
+			<< cps.worldMatrix.M31 << ","
+			<< cps.worldMatrix.M32 << ","
+			<< cps.worldMatrix.M33 << ","
+			<< cps.worldMatrix.M34 << ","
+			<< cps.worldMatrix.M41 << ","
+			<< cps.worldMatrix.M42 << ","
+			<< cps.worldMatrix.M43 << ","
+			<< cps.worldMatrix.M44
+			<< std::endl;
 		file.close();
 	}
 	catch (const std::exception& e) {
 		std::cerr << "Error: " << e.what() << std::endl;
 	}
-
-	// Chiamata alla funzione originale
-	if (originalCarStepFunction) {
-		originalCarStepFunction(car, param_1);
-	}
 }
 
 void dll_attached(HMODULE hModule) {
-	// Find the address of the PhysicsEngine::run function
-	void* carStepAddress = DetourFindFunction(moduleName, "Car::step");
-
-	// Hook the function using Detours.
-	if (carStepAddress) {
-		originalCarStepFunction = (car_step_t)carStepAddress;
-
-		DetourTransactionBegin();
-		DetourUpdateThread(GetCurrentThread());
-		DetourAttach(&(PVOID&)originalCarStepFunction, hookedCarStepFunction);
-		DetourTransactionCommit();
-
-		std::cout << ">>> Successfully hooked Car::step" << std::endl;
+	// Ricerca delle funzioni
+	void* getCarPhysicsStateAddress = DetourFindFunction(moduleName, "Car::getPhysicsState");
+	if (getCarPhysicsStateAddress) {
+		getCarPhysicsState = (getCarPhysicsStateT)getCarPhysicsStateAddress;
 	}
 	else {
-		std::cerr << ">>> Failed to find function Car::step in module " << moduleName << std::endl;
+		std::cerr << "Failed to find function Car::getPhysicsState" << std::endl;
+	}
+
+	void* acquireControlsAddress = DetourFindFunction(moduleName, "Car::pollControls");
+	if (acquireControlsAddress) {
+		originalCarPollControlsFunction = (carPollControlsT)acquireControlsAddress;
+	}
+	else {
+		std::cerr << "Failed to find function Car::pollControls" << std::endl;
+	}
+
+	// Hooking delle funzioni
+	if (acquireControlsAddress) {
+		DetourTransactionBegin();
+		DetourUpdateThread(GetCurrentThread());
+		DetourAttach(&(PVOID&)originalCarPollControlsFunction, hookedCarPollControls);
+		DetourTransactionCommit();
 	}
 }
 
