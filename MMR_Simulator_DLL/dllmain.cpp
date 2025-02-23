@@ -6,6 +6,7 @@
 #include "CarControls.h"
 #include "CarPhysicsState.h"
 #include <iostream>
+#include "ZeromqInterface.cpp"
 
 #include <fstream>
 #include <chrono>
@@ -27,6 +28,15 @@ float steer = -1;
 int gasCounter = 0;
 
 void hookedCarPollControls(Car* car, float period) {
+	if (firstStep) {
+		try {
+			testZeromqHelo();
+		}
+		catch (const std::exception& e) {
+			std::cerr << "Error: " << e.what() << std::endl;
+		}
+	}
+
 	// Call the original function
 	if (originalCarPollControlsFunction) {
 		originalCarPollControlsFunction(car, period);
