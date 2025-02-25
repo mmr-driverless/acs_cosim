@@ -65,35 +65,36 @@ void loadACSConfig() {
  * @param assettoCorsaDir Percorso della cartella di installazione di Assetto Corsa
  * @param dll Percorso della DLL da iniettare
  */
-void runAssettoCorsa(LPCWSTR assettoCorsaDir, LPCSTR dll) {
-	std::wstring assettoCorsaDirWString(assettoCorsaDir);
-	std::wstring targetExeWString = assettoCorsaDirWString + L"/acs.exe";
-	LPCWSTR targetExe = targetExeWString.c_str();
-
+void runAssettoCorsa(const std::filesystem::path& acs_dir_path) {
 	STARTUPINFO si = { sizeof(si) };
 	PROCESS_INFORMATION pi = { 0 };
 
+
+	std::wstring acs_dir = acs_dir_path.wstring();
+	std::wstring exe_path = (acs_dir_path / "acs.exe").wstring();
+	std::string dll_path = (acs_dir_path / "MMR_Simulator_DLL.dll").string();
+
 	// Iniezione della DLL nel processo
 	BOOL result = DetourCreateProcessWithDllEx(
-		targetExe,
+		exe_path.c_str(),
 		NULL,
 		NULL,
 		NULL,
 		FALSE,
 		CREATE_DEFAULT_ERROR_MODE,
 		NULL,
-		assettoCorsaDir,
+		acs_dir.c_str(),
 		&si,
 		&pi,
-		dll,
+		dll_path.c_str(),
 		NULL
 	);
 
 	if (result) {
-		std::cout << "Process created successfully" << std::endl;
+		std::cerr << "Process created successfully" << std::endl;
 	}
 	else {
-		std::cout << "Failed to create process. Error: " << GetLastError() << std::endl;
+		std::cerr << "Failed to create process. Error: " << GetLastError() << std::endl;
 	}
 	
 	// Attesa della fine del processo
@@ -104,28 +105,33 @@ void runAssettoCorsa(LPCWSTR assettoCorsaDir, LPCSTR dll) {
 	CloseHandle(pi.hThread);
 }
 
+
+int actual_main(int argc, char* argv[]) {
+	if (argc <= 1) {
+		std::cerr << "Usage: " << argv[0] << " ACS_ROOT_DIR" << std::endl;
+		return 1;
+	}
+
+	std::filesystem::path acs_root_dir(argv[1]);
+
+	SetEnvironmentVariable(L"ACS_ROOT_DIR", acs_root_dir.c_str());
+
+	// Avvio di Assetto Corsa
+	std::cerr << "Launching Assetto Corsa" << std::endl;
+	runAssettoCorsa(acs_root_dir / "assettocorsa");
+	std::cerr << "Simulator session ended" << std::endl;
+
+	return 0;
+}
+
 /**
  * Funzione main
  * 
  * @return Zero
  */
-int main()
+int main(int argc, char* argv[])
 {
-	// Variabili di configurazione
-	const LPCWSTR assettoCorsaDir = L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa";
-	const std::string dllAbsolutePath = fs::absolute("..\\MMR_Simulator_DLL\\x64\\Debug\\MMR_Simulator_DLL.dll").string();
-	const LPCSTR dll = dllAbsolutePath.c_str();
-	const BOOL useACSConfig = TRUE;
-
-	// Caricamento delle impostazioni per Assetto Corsa
-	if (useACSConfig) {
-		loadACSConfig();
-	}
-
-	// Avvio di Assetto Corsa
-	std::cout << "Launching Assetto Corsa" << std::endl;
-	runAssettoCorsa(assettoCorsaDir, dll);
-	std::cout << "Simulator session ended" << std::endl;
-
-	return 0;
+	int result = actual_main(argc, argv);
+	system("pause");
+	return result;
 }

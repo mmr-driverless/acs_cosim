@@ -152,11 +152,14 @@
     <ClInclude Include="CarPhysicsState.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="MMRSimulatorDll.h" />
+    <ClInclude Include="Parameters.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Utils.h" />
+    <ClInclude Include="winapi_helpers.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="Parameters.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -164,6 +167,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="MMRSimulatorDll.cpp" />
+    <ClCompile Include="winapi_helpers.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
