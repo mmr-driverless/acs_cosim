@@ -131,6 +131,15 @@ void hookedCarPollControls(Car* car, float period) {
 }
 
 void dll_attached(HMODULE hModule) {
+	AllocConsole();
+	
+	FILE* fDummy;
+	freopen_s(&fDummy, "CONIN$", "r", stdin);
+	freopen_s(&fDummy, "CONOUT$", "w", stderr);
+	freopen_s(&fDummy, "CONOUT$", "w", stdout);
+
+	std::cerr << "Hello from Assetto Corsa" << std::endl;
+
 	// Ricerca delle funzioni
 	void* getCarPhysicsStateAddress = DetourFindFunction(moduleName, "Car::getPhysicsState");
 	if (getCarPhysicsStateAddress) {
