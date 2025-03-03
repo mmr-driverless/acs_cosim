@@ -6,15 +6,22 @@
 #include "CarControls.h"
 #include "CarPhysicsState.h"
 #include <iostream>
-#include "ZeromqInterface.cpp"
+#include <acs_cosim/interface/server.hpp>
+#include <acs_cosim/interface/constants.hpp>
 
 #include <fstream>
 #include <chrono>
 #include <iomanip>
 #include <string>
 
+using namespace acs_cosim::interface::data;
+using namespace acs_cosim::interface::server;
+using namespace acs_cosim::interface::messages;
+using namespace acs_cosim::interface::constants;
+
+AcsServer acs_server("tcp://*:5555");
+
 const char* moduleName = "C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa\\acs.exe";
-const char* outputFile = ".\\acs_data.csv";
 
 // Hooked functions
 typedef void (*getCarPhysicsStateT)(Car*, CarPhysicsState*);
@@ -22,117 +29,69 @@ getCarPhysicsStateT getCarPhysicsState;
 typedef void (*carPollControlsT)(Car*, float);
 carPollControlsT originalCarPollControlsFunction;
 
-bool firstStep = true;
-int steerCounter = 0;
-float steer = -1;
-int gasCounter = 0;
-
 void hookedCarPollControls(Car* car, float period) {
-	if (firstStep) {
-		try {
-			testZeromqHelo();
-		}
-		catch (const std::exception& e) {
-			std::cerr << "Error: " << e.what() << std::endl;
-		}
-	}
-
 	// Call the original function
 	if (originalCarPollControlsFunction) {
 		originalCarPollControlsFunction(car, period);
 	}
 
-	// Take control of the car
-	if (firstStep) {
-		car->controls.steer = -1;
+	// Receive action from the Simulator Node
+	char buf[MAX_MESSAGE_SIZE];
+	acs_server.receive_message(buf);
 
-		car->controls.clutch = 1;
-		car->controls.gearUp = true;
-		firstStep = false;
-		return;
-	}
-	else {
-		car->controls.clutch = 0;
-		car->controls.gearUp = false;
-	}
+	MsgBase* msg = (MsgBase*)buf;
 
-	if (gasCounter > 3000) {
-		car->controls.gas = 1;
-	}
-
-	steerCounter++;
-	car->controls.steer = steer;
-	if (steerCounter > 500) {
-		steer = -steer;
-		steerCounter = 0;
-	}
-
-	gasCounter++;
-
-	try {
-		std::ofstream file(outputFile, std::ios::app);
-		if (!file.is_open()) {
-			throw std::ios_base::failure("Failed to open the file for writing.");
-		}
-
-		// Get current time and CarPhysicsState
-		auto now = std::chrono::system_clock::now();
-
-		CarPhysicsState cps;
-		getCarPhysicsState(car, &cps);
-
-		file
-			<< now.time_since_epoch().count() << ","
-			<< cps.engineRPM << ","
-			<< cps.limiterRPM << ","
-			<< cps.steer << ","
-			<< cps.gas << ","
-			<< cps.brake << ","
-			<< cps.clutch << ","
-			<< cps.gear << ","
-			<< cps.speed.value << ","
-			<< cps.velocity.x << ","
-			<< cps.velocity.y << ","
-			<< cps.velocity.z << ","
-			<< cps.localVelocity.x << ","
-			<< cps.localVelocity.y << ","
-			<< cps.localVelocity.z << ","
-			<< cps.localAngularVelocity.x << ","
-			<< cps.localAngularVelocity.y << ","
-			<< cps.localAngularVelocity.z << ","
-			<< cps.angularVelocity.x << ","
-			<< cps.angularVelocity.y << ","
-			<< cps.angularVelocity.z << ","
-			<< cps.accG.x << ","
-			<< cps.accG.y << ","
-			<< cps.accG.z << ","
-			<< cps.worldMatrix.M11 << ","
-			<< cps.worldMatrix.M12 << ","
-			<< cps.worldMatrix.M13 << ","
-			<< cps.worldMatrix.M14 << ","
-			<< cps.worldMatrix.M21 << ","
-			<< cps.worldMatrix.M22 << ","
-			<< cps.worldMatrix.M23 << ","
-			<< cps.worldMatrix.M24 << ","
-			<< cps.worldMatrix.M31 << ","
-			<< cps.worldMatrix.M32 << ","
-			<< cps.worldMatrix.M33 << ","
-			<< cps.worldMatrix.M34 << ","
-			<< cps.worldMatrix.M41 << ","
-			<< cps.worldMatrix.M42 << ","
-			<< cps.worldMatrix.M43 << ","
-			<< cps.worldMatrix.M44
+	switch (msg->get_type()) {
+	case MsgType::Reset:
+		std::cerr << "Received RESET message" << std::endl;
+		break;
+	case MsgType::GetState:
+		std::cerr << "Received GET_STATE message" << std::endl;
+		break;
+	case MsgType::Control: {
+		std::cerr << "Received CONTROL message" << std::endl;
+		ControlMsg* msg = (ControlMsg*)buf;
+		std::cerr << "Torque: " << msg->control.torque << std::endl;
+		std::cerr << "Steering angle: " << msg->control.steering_angle
 			<< std::endl;
-		file.close();
+		std::cerr << "Cycles to skip: " << msg->cycles_to_skip << std::endl;
+		break;
 	}
-	catch (const std::exception& e) {
-		std::cerr << "Error: " << e.what() << std::endl;
+	default:
+		std::cerr << "Unknown message type" << std::endl;
+		break;
 	}
+
+	// Get and send vehicle state
+	CarPhysicsState cps;
+	getCarPhysicsState(car, &cps);
+
+	VehicleState vehicle_state;
+	vehicle_state.angular_velocity.x = cps.angularVelocity.x;
+	vehicle_state.angular_velocity.y = cps.angularVelocity.y;
+	vehicle_state.angular_velocity.z = cps.angularVelocity.z;
+	vehicle_state.linear_velocity.x = cps.velocity.x;
+	vehicle_state.linear_velocity.y = cps.velocity.y;
+	vehicle_state.linear_velocity.z = cps.velocity.z;
+	vehicle_state.rotation.m[0][0] = cps.worldMatrix.M11;
+	vehicle_state.rotation.m[0][1] = cps.worldMatrix.M12;
+	vehicle_state.rotation.m[0][2] = cps.worldMatrix.M13;
+	vehicle_state.rotation.m[1][0] = cps.worldMatrix.M21;
+	vehicle_state.rotation.m[1][1] = cps.worldMatrix.M22;
+	vehicle_state.rotation.m[1][2] = cps.worldMatrix.M23;
+	vehicle_state.rotation.m[2][0] = cps.worldMatrix.M31;
+	vehicle_state.rotation.m[2][1] = cps.worldMatrix.M32;
+	vehicle_state.rotation.m[2][2] = cps.worldMatrix.M33;
+	vehicle_state.position.x = cps.worldMatrix.M41;
+	vehicle_state.position.y = cps.worldMatrix.M42;
+	vehicle_state.position.z = cps.worldMatrix.M43;
+	VehicleStateMsg vehicle_state_msg(vehicle_state);
+	acs_server.send_message(&vehicle_state_msg);
 }
 
 void dll_attached(HMODULE hModule) {
 	AllocConsole();
-	
+
 	FILE* fDummy;
 	freopen_s(&fDummy, "CONIN$", "r", stdin);
 	freopen_s(&fDummy, "CONOUT$", "w", stderr);
