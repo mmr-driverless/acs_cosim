@@ -1,0 +1,3 @@
+[submodule "Dependencies/acs_cosim_interface"]
+	path = Dependencies/acs_cosim_interface
+	url = https://github.com/mmr-driverless/acs_cosim_interface
