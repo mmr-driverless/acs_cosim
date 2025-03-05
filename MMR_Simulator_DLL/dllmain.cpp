@@ -2,9 +2,7 @@
 #include "pch.h"
 #include "MMRSimulatorDll.h"
 #include "detours.h"
-#include "Car.h"
-#include "CarControls.h"
-#include "CarPhysicsState.h"
+#include "Car.hpp"
 #include <iostream>
 #include <acs_cosim/interface/server.hpp>
 #include <acs_cosim/interface/constants.hpp>
@@ -38,7 +36,6 @@ void hookedCarPollControls(Car* car, float period) {
 	// Receive action from the Simulator Node
 	char buf[MAX_MESSAGE_SIZE];
 	acs_server.receive_message(buf);
-
 	MsgBase* msg = (MsgBase*)buf;
 
 	switch (msg->get_type()) {
@@ -49,12 +46,8 @@ void hookedCarPollControls(Car* car, float period) {
 		std::cerr << "Received GET_STATE message" << std::endl;
 		break;
 	case MsgType::Control: {
-		std::cerr << "Received CONTROL message" << std::endl;
 		ControlMsg* msg = (ControlMsg*)buf;
-		std::cerr << "Torque: " << msg->control.torque << std::endl;
-		std::cerr << "Steering angle: " << msg->control.steering_angle
-			<< std::endl;
-		std::cerr << "Cycles to skip: " << msg->cycles_to_skip << std::endl;
+		car->controls = msg->control;
 		break;
 	}
 	default:
@@ -65,27 +58,7 @@ void hookedCarPollControls(Car* car, float period) {
 	// Get and send vehicle state
 	CarPhysicsState cps;
 	getCarPhysicsState(car, &cps);
-
-	VehicleState vehicle_state;
-	vehicle_state.angular_velocity.x = cps.angularVelocity.x;
-	vehicle_state.angular_velocity.y = cps.angularVelocity.y;
-	vehicle_state.angular_velocity.z = cps.angularVelocity.z;
-	vehicle_state.linear_velocity.x = cps.velocity.x;
-	vehicle_state.linear_velocity.y = cps.velocity.y;
-	vehicle_state.linear_velocity.z = cps.velocity.z;
-	vehicle_state.rotation.m[0][0] = cps.worldMatrix.M11;
-	vehicle_state.rotation.m[0][1] = cps.worldMatrix.M12;
-	vehicle_state.rotation.m[0][2] = cps.worldMatrix.M13;
-	vehicle_state.rotation.m[1][0] = cps.worldMatrix.M21;
-	vehicle_state.rotation.m[1][1] = cps.worldMatrix.M22;
-	vehicle_state.rotation.m[1][2] = cps.worldMatrix.M23;
-	vehicle_state.rotation.m[2][0] = cps.worldMatrix.M31;
-	vehicle_state.rotation.m[2][1] = cps.worldMatrix.M32;
-	vehicle_state.rotation.m[2][2] = cps.worldMatrix.M33;
-	vehicle_state.position.x = cps.worldMatrix.M41;
-	vehicle_state.position.y = cps.worldMatrix.M42;
-	vehicle_state.position.z = cps.worldMatrix.M43;
-	VehicleStateMsg vehicle_state_msg(vehicle_state);
+	VehicleStateMsg vehicle_state_msg(cps);
 	acs_server.send_message(&vehicle_state_msg);
 }
 

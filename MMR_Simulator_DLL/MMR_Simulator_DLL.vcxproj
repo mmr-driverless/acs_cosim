@@ -147,13 +147,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="Car.h" />
-    <ClInclude Include="CarControls.h" />
-    <ClInclude Include="CarPhysicsState.h" />
+    <ClInclude Include="Car.hpp" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="MMRSimulatorDll.h" />
     <ClInclude Include="pch.h" />
-    <ClInclude Include="Utils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />
