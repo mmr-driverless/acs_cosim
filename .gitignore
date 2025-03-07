@@ -33,6 +33,7 @@
 
 # Dependencies directory
 Dependencies/*
+!Dependencies/acs_cosim_interface
 
 # Ignore build directories
 Debug/

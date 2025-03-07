@@ -113,14 +113,14 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\Dependencies\Detours\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Program Files (x86)\acs_cosim_interface\include;$(ProjectDir)..\Dependencies\zeromq\include;$(ProjectDir)..\Dependencies\Detours\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalLibraryDirectories>$(ProjectDir)..\Dependencies\Detours\lib.X64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>detours.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Program Files (x86)\acs_cosim_interface\lib;$(ProjectDir)..\Dependencies\zeromq\lib\;$(ProjectDir)..\Dependencies\Detours\lib.X64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>acs_cosim_interface_server.lib;libzmq-mt-4_3_5.lib;detours.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -147,14 +147,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="Car.h" />
-    <ClInclude Include="CarControls.h" />
-    <ClInclude Include="CarPhysicsState.h" />
+    <ClInclude Include="Car.hpp" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="MMRSimulatorDll.h" />
     <ClInclude Include="Parameters.h" />
     <ClInclude Include="pch.h" />
-    <ClInclude Include="Utils.h" />
     <ClInclude Include="winapi_helpers.hpp" />
   </ItemGroup>
   <ItemGroup>

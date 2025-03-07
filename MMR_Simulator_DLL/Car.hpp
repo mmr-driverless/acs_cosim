@@ -1,8 +1,10 @@
-#include "CarControls.h"
-#include "Utils.h"
+#ifndef CAR_HPP
+#define CAR_HPP
 
-#ifndef CAR_H
-#define CAR_H
+#include <acs_cosim/interface/CarControls.hpp>
+#include <acs_cosim/interface/Utils.hpp>
+
+using namespace acs_cosim::interface::data;
 
 class Car {
 public:							// Offset
@@ -20,4 +22,4 @@ public:							// Offset
 	bool externalControl;		// 0x3e98
 };
 
-#endif // CAR_H
+#endif // CAR_HPP
