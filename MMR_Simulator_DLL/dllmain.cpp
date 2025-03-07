@@ -12,8 +12,7 @@
 #include <iomanip>
 #include <string>
 
-const char* moduleName = "C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa\\acs.exe";
-const char* outputFile = ".\\acs_data.csv";
+#include "Parameters.h"
 
 // Hooked functions
 typedef void (*getCarPhysicsStateT)(Car*, CarPhysicsState*);
@@ -21,10 +20,7 @@ getCarPhysicsStateT getCarPhysicsState;
 typedef void (*carPollControlsT)(Car*, float);
 carPollControlsT originalCarPollControlsFunction;
 
-bool firstStep = true;
-int steerCounter = 0;
-float steer = -1;
-int gasCounter = 0;
+static Parameters params;
 
 void hookedCarPollControls(Car* car, float period) {
 	// Call the original function
@@ -32,35 +28,8 @@ void hookedCarPollControls(Car* car, float period) {
 		originalCarPollControlsFunction(car, period);
 	}
 
-	// Take control of the car
-	if (firstStep) {
-		car->controls.steer = -1;
-
-		car->controls.clutch = 1;
-		car->controls.gearUp = true;
-		firstStep = false;
-		return;
-	}
-	else {
-		car->controls.clutch = 0;
-		car->controls.gearUp = false;
-	}
-
-	if (gasCounter > 3000) {
-		car->controls.gas = 1;
-	}
-
-	steerCounter++;
-	car->controls.steer = steer;
-	if (steerCounter > 500) {
-		steer = -steer;
-		steerCounter = 0;
-	}
-
-	gasCounter++;
-
 	try {
-		std::ofstream file(outputFile, std::ios::app);
+		std::ofstream file(params.acs_root_dir() / "log_out.csv", std::ios::app);
 		if (!file.is_open()) {
 			throw std::ios_base::failure("Failed to open the file for writing.");
 		}
@@ -130,8 +99,16 @@ void dll_attached(HMODULE hModule) {
 
 	std::cerr << "Hello from Assetto Corsa" << std::endl;
 
+
+	std::wcerr << "ACS_ROOT_DIR = " << params.acs_root_dir() << std::endl;
+
+
+	// Form ModuleName
+	std::string moduleName = (params.acs_root_dir() / "assettocorsa" / "acs.exe").string();
+	std::cerr << "Module Name: " << moduleName << std::endl;
+	
 	// Ricerca delle funzioni
-	void* getCarPhysicsStateAddress = DetourFindFunction(moduleName, "Car::getPhysicsState");
+	void* getCarPhysicsStateAddress = DetourFindFunction(moduleName.c_str(), "Car::getPhysicsState");
 	if (getCarPhysicsStateAddress) {
 		getCarPhysicsState = (getCarPhysicsStateT)getCarPhysicsStateAddress;
 	}
@@ -139,7 +116,7 @@ void dll_attached(HMODULE hModule) {
 		std::cerr << "Failed to find function Car::getPhysicsState" << std::endl;
 	}
 
-	void* acquireControlsAddress = DetourFindFunction(moduleName, "Car::pollControls");
+	void* acquireControlsAddress = DetourFindFunction(moduleName.c_str(), "Car::pollControls");
 	if (acquireControlsAddress) {
 		originalCarPollControlsFunction = (carPollControlsT)acquireControlsAddress;
 	}
