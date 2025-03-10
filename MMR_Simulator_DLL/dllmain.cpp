@@ -13,6 +13,7 @@
 #include <string>
 
 #include "Parameters.h"
+
 using namespace acs_cosim::interface::data;
 using namespace acs_cosim::interface::server;
 using namespace acs_cosim::interface::messages;
@@ -34,33 +35,36 @@ void hookedCarPollControls(Car* car, float period) {
 		originalCarPollControlsFunction(car, period);
 	}
 
-	// Receive action from the Simulator Node
-	char buf[MAX_MESSAGE_SIZE];
-	acs_server.receive_message(buf);
-	MsgBase* msg = (MsgBase*)buf;
+	bool advance = true;
+	do {
+		// Receive action from the Simulator Node
+		char buf[MAX_MESSAGE_SIZE];
+		acs_server.receive_message(buf);
+		MsgBase* msg = (MsgBase*)buf;
 
-	switch (msg->get_type()) {
-	case MsgType::Reset:
-		std::cerr << "Received RESET message" << std::endl;
-		break;
-	case MsgType::GetState:
-		std::cerr << "Received GET_STATE message" << std::endl;
-		break;
-	case MsgType::Control: {
-		ControlMsg* msg = (ControlMsg*)buf;
-		car->controls = msg->control;
-		break;
-	}
-	default:
-		std::cerr << "Unknown message type" << std::endl;
-		break;
-	}
+		switch (msg->get_type()) {
+		case MsgType::Reset:
+			std::cerr << "Received RESET message" << std::endl;
+			break;
+		case MsgType::GetState:
+			advance = false;  // Do not step the simulation
+			break;
+		case MsgType::Control: {
+			ControlMsg* msg = (ControlMsg*)buf;
+			car->controls = msg->control;
+			break;
+		}
+		default:
+			std::cerr << "Unknown message type" << std::endl;
+			break;
+		}
 
-	// Get and send vehicle state
-	CarPhysicsState cps;
-	getCarPhysicsState(car, &cps);
-	VehicleStateMsg vehicle_state_msg(cps);
-	acs_server.send_message(&vehicle_state_msg);
+		// Get and send vehicle state
+		CarPhysicsState cps;
+		getCarPhysicsState(car, &cps);
+		VehicleStateMsg vehicle_state_msg(cps);
+		acs_server.send_message(&vehicle_state_msg);
+	} while (!advance);
 }
 
 void dll_attached(HMODULE hModule) {
@@ -80,7 +84,7 @@ void dll_attached(HMODULE hModule) {
 	// Form ModuleName
 	std::string moduleName = (params.acs_root_dir() / "assettocorsa" / "acs.exe").string();
 	std::cerr << "Module Name: " << moduleName << std::endl;
-	
+
 	// Ricerca delle funzioni
 	void* getCarPhysicsStateAddress = DetourFindFunction(moduleName.c_str(), "Car::getPhysicsState");
 	if (getCarPhysicsStateAddress) {
