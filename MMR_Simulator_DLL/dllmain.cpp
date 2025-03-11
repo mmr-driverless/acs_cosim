@@ -35,8 +35,10 @@ void hookedCarPollControls(Car* car, float period) {
 		originalCarPollControlsFunction(car, period);
 	}
 
-	bool advance = true;
+	bool advance;
 	do {
+		advance = true;
+
 		// Receive action from the Simulator Node
 		char buf[MAX_MESSAGE_SIZE];
 		acs_server.receive_message(buf);
@@ -74,9 +76,6 @@ void dll_attached(HMODULE hModule) {
 	freopen_s(&fDummy, "CONIN$", "r", stdin);
 	freopen_s(&fDummy, "CONOUT$", "w", stderr);
 	freopen_s(&fDummy, "CONOUT$", "w", stdout);
-
-	std::cerr << "Hello from Assetto Corsa" << std::endl;
-
 
 	std::wcerr << "ACS_ROOT_DIR = " << params.acs_root_dir() << std::endl;
 
