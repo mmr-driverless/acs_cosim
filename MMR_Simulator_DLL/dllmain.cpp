@@ -3,6 +3,7 @@
 #include "MMRSimulatorDll.h"
 #include "detours.h"
 #include "Car.hpp"
+#include "UDPCommandListener.hpp"
 #include <iostream>
 #include <acs_cosim/interface/server.hpp>
 #include <acs_cosim/interface/constants.hpp>
@@ -20,14 +21,43 @@ using namespace acs_cosim::interface::messages;
 using namespace acs_cosim::interface::constants;
 
 AcsServer acs_server("tcp://*:5555");
+UDPCommandListener* commandListener = nullptr;
 
 // Hooked functions
 typedef void (*getCarPhysicsStateT)(Car*, CarPhysicsState*);
 getCarPhysicsStateT getCarPhysicsState;
+
 typedef void (*carPollControlsT)(Car*, float);
 carPollControlsT originalCarPollControlsFunction;
 
+typedef void (*commandListenerUpdateT)(UDPCommandListener*, float);
+commandListenerUpdateT originalCommandListenerUpdateFunction;
+
+typedef void (*simStartGameT)(Sim*);
+simStartGameT originalSimStartGameFunction;
+
 static Parameters params;
+
+/**
+ * This function gets the address of the UDPCommandListener object
+ * in order to control the status of the simulation.
+ * Then starts the simulation.
+ */
+void hookedCommandListenerUpdateFunction(UDPCommandListener* localCommandListener, float period) {
+	if (commandListener == nullptr) {
+		commandListener = localCommandListener;
+		std::cerr << "Found command listener" << std::endl;
+
+		// Start the simulation
+		if (originalSimStartGameFunction) {
+			originalSimStartGameFunction(commandListener->sim);
+		}
+	}
+
+	if (originalCommandListenerUpdateFunction) {
+		originalCommandListenerUpdateFunction(localCommandListener, period);
+	}
+}
 
 void hookedCarPollControls(Car* car, float period) {
 	// Call the original function
@@ -101,11 +131,28 @@ void dll_attached(HMODULE hModule) {
 		std::cerr << "Failed to find function Car::pollControls" << std::endl;
 	}
 
+	void* commandListenerUpdate = DetourFindFunction(moduleName.c_str(), "UDPCommandListener::update");
+	if (commandListenerUpdate) {
+		originalCommandListenerUpdateFunction = (commandListenerUpdateT)commandListenerUpdate;
+	}
+	else {
+		std::cerr << "Failed to find function UDPCommandListener::update" << std::endl;
+	}
+
+	void* simStartGame = DetourFindFunction(moduleName.c_str(), "Sim::startGame");
+	if (simStartGame) {
+		originalSimStartGameFunction = (simStartGameT)simStartGame;
+	}
+	else {
+		std::cerr << "Failed to find function Sim::startGame" << std::endl;
+	}
+
 	// Hooking delle funzioni
 	if (acquireControlsAddress) {
 		DetourTransactionBegin();
 		DetourUpdateThread(GetCurrentThread());
 		DetourAttach(&(PVOID&)originalCarPollControlsFunction, hookedCarPollControls);
+		DetourAttach(&(PVOID&)originalCommandListenerUpdateFunction, hookedCommandListenerUpdateFunction);
 		DetourTransactionCommit();
 	}
 }
