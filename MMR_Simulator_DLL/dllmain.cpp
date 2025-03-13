@@ -3,6 +3,7 @@
 #include "MMRSimulatorDll.h"
 #include "detours.h"
 #include "Car.hpp"
+#include "CarAvatar.hpp"
 #include "UDPCommandListener.hpp"
 #include <iostream>
 #include <acs_cosim/interface/server.hpp>
@@ -35,6 +36,12 @@ commandListenerUpdateT originalCommandListenerUpdateFunction;
 
 typedef void (*simStartGameT)(Sim*);
 simStartGameT originalSimStartGameFunction;
+
+typedef CarAvatar* (*simGetCarT)(void*, int);
+simGetCarT originalSimGetCarFunction;
+
+typedef void (*goToSpawnPositionT)(void*, std::wstring);
+goToSpawnPositionT originalGoToSpawnPosition;
 
 static Parameters params;
 
@@ -76,7 +83,10 @@ void hookedCarPollControls(Car* car, float period) {
 
 		switch (msg->get_type()) {
 		case MsgType::Reset:
-			std::cerr << "Received RESET message" << std::endl;
+			if (originalSimGetCarFunction && originalGoToSpawnPosition) {
+				CarAvatar* carAvatar = originalSimGetCarFunction(commandListener->sim, 0);
+				originalGoToSpawnPosition(carAvatar, L"PIT");
+			}
 			break;
 		case MsgType::GetState:
 			advance = false;  // Do not step the simulation
@@ -145,6 +155,22 @@ void dll_attached(HMODULE hModule) {
 	}
 	else {
 		std::cerr << "Failed to find function Sim::startGame" << std::endl;
+	}
+
+	void* simGetCar = DetourFindFunction(moduleName.c_str(), "Sim::getCar");
+	if (simGetCar) {
+		originalSimGetCarFunction = (simGetCarT)simGetCar;
+	}
+	else {
+		std::cerr << "Failed to find function Sim::getCar" << std::endl;
+	}
+
+	void* goToSpawnPosition = DetourFindFunction(moduleName.c_str(), "CarAvatar::goToSpawnPosition");
+	if (goToSpawnPosition) {
+		originalGoToSpawnPosition = (goToSpawnPositionT)goToSpawnPosition;
+	}
+	else {
+		std::cerr << "Failed to find function CarAvatar::goToSpawnPosition" << std::endl;
 	}
 
 	// Hooking delle funzioni

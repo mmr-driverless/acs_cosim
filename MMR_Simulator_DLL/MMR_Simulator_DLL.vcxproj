@@ -156,6 +156,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Car.hpp" />
+    <ClInclude Include="CarAvatar.hpp" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="MMRSimulatorDll.h" />
     <ClInclude Include="Parameters.h" />

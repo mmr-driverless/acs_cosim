@@ -4,4 +4,3 @@
 struct Sim;
 
 #endif // !SIM_HPP
-
