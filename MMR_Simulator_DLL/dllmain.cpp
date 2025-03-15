@@ -104,8 +104,12 @@ void hookedCarPollControls(Car* car, float period) {
 		// Get and send vehicle state
 		CarPhysicsState cps;
 		getCarPhysicsState(car, &cps);
-		VehicleStateMsg vehicle_state_msg(cps);
-		acs_server.send_message(&vehicle_state_msg);
+
+		VehicleState vehicleState(cps);
+		vehicleState.simulationTime = car->ksPhysics->physicsTime;
+
+		VehicleStateMsg vehicleStateMsg(vehicleState);
+		acs_server.send_message(&vehicleStateMsg);
 	} while (!advance);
 }
 

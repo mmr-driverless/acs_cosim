@@ -161,6 +161,7 @@
     <ClInclude Include="MMRSimulatorDll.h" />
     <ClInclude Include="Parameters.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="PhysicsEngine.hpp" />
     <ClInclude Include="Sim.hpp" />
     <ClInclude Include="UDPCommandListener.hpp" />
     <ClInclude Include="winapi_helpers.hpp" />
