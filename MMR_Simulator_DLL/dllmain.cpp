@@ -53,7 +53,6 @@ static Parameters params;
 void hookedCommandListenerUpdateFunction(UDPCommandListener* localCommandListener, float period) {
 	if (commandListener == nullptr) {
 		commandListener = localCommandListener;
-		std::cerr << "Found command listener" << std::endl;
 
 		// Start the simulation
 		if (originalSimStartGameFunction) {
@@ -104,12 +103,9 @@ void hookedCarPollControls(Car* car, float period) {
 		// Get and send vehicle state
 		CarPhysicsState cps;
 		getCarPhysicsState(car, &cps);
-
-		VehicleState vehicleState(cps);
-		vehicleState.simulationTime = car->ksPhysics->physicsTime;
-
-		VehicleStateMsg vehicleStateMsg(vehicleState);
-		acs_server.send_message(&vehicleStateMsg);
+		SimulationState simulationState(car->ksPhysics->physicsTime, cps);
+		SimulationStateMsg simulationStateMsg(simulationState);
+		acs_server.send_message(&simulationStateMsg);
 	} while (!advance);
 }
 
