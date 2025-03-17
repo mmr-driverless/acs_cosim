@@ -45,6 +45,16 @@ goToSpawnPositionT originalGoToSpawnPosition;
 
 static Parameters params;
 
+bool firstStep = true;
+
+void sendSimulationStateMsg(Car* car) {
+	CarPhysicsState cps;
+	getCarPhysicsState(car, &cps);
+	SimulationState simulationState(car->ksPhysics->physicsTime, cps);
+	SimulationStateMsg simulationStateMsg(simulationState);
+	acs_server.send_message(&simulationStateMsg);
+}
+
 /**
  * This function gets the address of the UDPCommandListener object
  * in order to control the status of the simulation.
@@ -66,7 +76,17 @@ void hookedCommandListenerUpdateFunction(UDPCommandListener* localCommandListene
 }
 
 void hookedCarPollControls(Car* car, float period) {
-	// Call the original function
+	if (!firstStep) {
+		// Vehicle state is sent here because the step needs to be concluded before sending the state to AcsClient.
+		// To do so, this function (hookedCarPollControls) needs to return. When this function is called again
+		// during the next simulation step, it sends the updated SimulationStateMsg to the client.
+		sendSimulationStateMsg(car);
+	}
+	else {
+		firstStep = false;
+	}
+
+	// Call the original pollControls function, in order to ovverride its result
 	if (originalCarPollControlsFunction) {
 		originalCarPollControlsFunction(car, period);
 	}
@@ -89,6 +109,7 @@ void hookedCarPollControls(Car* car, float period) {
 			break;
 		case MsgType::GetState:
 			advance = false;  // Do not step the simulation
+			sendSimulationStateMsg(car);
 			break;
 		case MsgType::Control: {
 			ControlMsg* msg = (ControlMsg*)buf;
@@ -99,13 +120,6 @@ void hookedCarPollControls(Car* car, float period) {
 			std::cerr << "Unknown message type" << std::endl;
 			break;
 		}
-
-		// Get and send vehicle state
-		CarPhysicsState cps;
-		getCarPhysicsState(car, &cps);
-		SimulationState simulationState(car->ksPhysics->physicsTime, cps);
-		SimulationStateMsg simulationStateMsg(simulationState);
-		acs_server.send_message(&simulationStateMsg);
 	} while (!advance);
 }
 
