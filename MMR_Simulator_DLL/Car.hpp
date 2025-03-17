@@ -1,6 +1,7 @@
 #ifndef CAR_HPP
 #define CAR_HPP
 
+#include "PhysicsEngine.hpp"
 #include <acs_cosim/interface/CarControls.hpp>
 #include <acs_cosim/interface/Utils.hpp>
 
@@ -8,7 +9,8 @@ using namespace acs_cosim::interface::data;
 
 class Car {
 public:							// Offset
-    char undefined0[0x140];
+    char undefined0[0x138];
+	PhysicsEngine* ksPhysics;	// 0x138
 	CarControls controls;		// 0x140
     char undefined1[0x172];
 	float mass;					// 0x1e0

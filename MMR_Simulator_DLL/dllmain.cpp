@@ -3,6 +3,8 @@
 #include "MMRSimulatorDll.h"
 #include "detours.h"
 #include "Car.hpp"
+#include "CarAvatar.hpp"
+#include "UDPCommandListener.hpp"
 #include <iostream>
 #include <acs_cosim/interface/server.hpp>
 #include <acs_cosim/interface/constants.hpp>
@@ -20,14 +22,48 @@ using namespace acs_cosim::interface::messages;
 using namespace acs_cosim::interface::constants;
 
 AcsServer acs_server("tcp://*:5555");
+UDPCommandListener* commandListener = nullptr;
 
 // Hooked functions
 typedef void (*getCarPhysicsStateT)(Car*, CarPhysicsState*);
 getCarPhysicsStateT getCarPhysicsState;
+
 typedef void (*carPollControlsT)(Car*, float);
 carPollControlsT originalCarPollControlsFunction;
 
+typedef void (*commandListenerUpdateT)(UDPCommandListener*, float);
+commandListenerUpdateT originalCommandListenerUpdateFunction;
+
+typedef void (*simStartGameT)(Sim*);
+simStartGameT originalSimStartGameFunction;
+
+typedef CarAvatar* (*simGetCarT)(void*, int);
+simGetCarT originalSimGetCarFunction;
+
+typedef void (*goToSpawnPositionT)(void*, std::wstring);
+goToSpawnPositionT originalGoToSpawnPosition;
+
 static Parameters params;
+
+/**
+ * This function gets the address of the UDPCommandListener object
+ * in order to control the status of the simulation.
+ * Then starts the simulation.
+ */
+void hookedCommandListenerUpdateFunction(UDPCommandListener* localCommandListener, float period) {
+	if (commandListener == nullptr) {
+		commandListener = localCommandListener;
+
+		// Start the simulation
+		if (originalSimStartGameFunction) {
+			originalSimStartGameFunction(commandListener->sim);
+		}
+	}
+
+	if (originalCommandListenerUpdateFunction) {
+		originalCommandListenerUpdateFunction(localCommandListener, period);
+	}
+}
 
 void hookedCarPollControls(Car* car, float period) {
 	// Call the original function
@@ -46,7 +82,10 @@ void hookedCarPollControls(Car* car, float period) {
 
 		switch (msg->get_type()) {
 		case MsgType::Reset:
-			std::cerr << "Received RESET message" << std::endl;
+			if (originalSimGetCarFunction && originalGoToSpawnPosition) {
+				CarAvatar* carAvatar = originalSimGetCarFunction(commandListener->sim, 0);
+				originalGoToSpawnPosition(carAvatar, L"PIT");
+			}
 			break;
 		case MsgType::GetState:
 			advance = false;  // Do not step the simulation
@@ -64,8 +103,9 @@ void hookedCarPollControls(Car* car, float period) {
 		// Get and send vehicle state
 		CarPhysicsState cps;
 		getCarPhysicsState(car, &cps);
-		VehicleStateMsg vehicle_state_msg(cps);
-		acs_server.send_message(&vehicle_state_msg);
+		SimulationState simulationState(car->ksPhysics->physicsTime, cps);
+		SimulationStateMsg simulationStateMsg(simulationState);
+		acs_server.send_message(&simulationStateMsg);
 	} while (!advance);
 }
 
@@ -101,11 +141,44 @@ void dll_attached(HMODULE hModule) {
 		std::cerr << "Failed to find function Car::pollControls" << std::endl;
 	}
 
+	void* commandListenerUpdate = DetourFindFunction(moduleName.c_str(), "UDPCommandListener::update");
+	if (commandListenerUpdate) {
+		originalCommandListenerUpdateFunction = (commandListenerUpdateT)commandListenerUpdate;
+	}
+	else {
+		std::cerr << "Failed to find function UDPCommandListener::update" << std::endl;
+	}
+
+	void* simStartGame = DetourFindFunction(moduleName.c_str(), "Sim::startGame");
+	if (simStartGame) {
+		originalSimStartGameFunction = (simStartGameT)simStartGame;
+	}
+	else {
+		std::cerr << "Failed to find function Sim::startGame" << std::endl;
+	}
+
+	void* simGetCar = DetourFindFunction(moduleName.c_str(), "Sim::getCar");
+	if (simGetCar) {
+		originalSimGetCarFunction = (simGetCarT)simGetCar;
+	}
+	else {
+		std::cerr << "Failed to find function Sim::getCar" << std::endl;
+	}
+
+	void* goToSpawnPosition = DetourFindFunction(moduleName.c_str(), "CarAvatar::goToSpawnPosition");
+	if (goToSpawnPosition) {
+		originalGoToSpawnPosition = (goToSpawnPositionT)goToSpawnPosition;
+	}
+	else {
+		std::cerr << "Failed to find function CarAvatar::goToSpawnPosition" << std::endl;
+	}
+
 	// Hooking delle funzioni
 	if (acquireControlsAddress) {
 		DetourTransactionBegin();
 		DetourUpdateThread(GetCurrentThread());
 		DetourAttach(&(PVOID&)originalCarPollControlsFunction, hookedCarPollControls);
+		DetourAttach(&(PVOID&)originalCommandListenerUpdateFunction, hookedCommandListenerUpdateFunction);
 		DetourTransactionCommit();
 	}
 }
