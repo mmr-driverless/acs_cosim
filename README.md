@@ -6,6 +6,10 @@ Physics simulator based on Assetto Corsa.
 
 ## Setup
 
+This project is made of two Microsoft Visual Studio solutions. B**efore opening the solutions** be sure to create your own `.props` file by copying `.props.example`, and setting you own values for the variables:
+
+- **ASSETTO_CORSA_PARENT_DIR**: it should be a directory containing a folder named `assettocorsa`
+
 ### Tools
 
 - Windows
