@@ -51,11 +51,12 @@ physicsDriveThreadRunT originalPhysicsDriveThreadRun;
 static Parameters params;
 
 bool firstStep = true;
+std::chrono::milliseconds simulationTime(0);
 
 void sendSimulationStateMsg(Car* car) {
 	CarPhysicsState cps;
 	getCarPhysicsState(car, &cps);
-	SimulationState simulationState(car->ksPhysics->physicsTime, cps);
+	SimulationState simulationState(simulationTime, cps);
 	SimulationStateMsg simulationStateMsg(simulationState);
 	acs_server.send_message(&simulationStateMsg);
 }
@@ -99,6 +100,10 @@ void hookedCarPollControls(Car* car, float period) {
 		// To do so, this function (hookedCarPollControls) needs to return. When this function is called again
 		// during the next simulation step, it sends the updated SimulationStateMsg to the client.
 		sendSimulationStateMsg(car);
+		
+		// simulationTime is incremented here because we want to increment whenever this function is called
+		// exept for the first step
+		simulationTime += std::chrono::milliseconds(3);
 	}
 	else {
 		firstStep = false;
