@@ -162,6 +162,7 @@
     <ClInclude Include="MMRSimulatorDll.h" />
     <ClInclude Include="Parameters.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="PhysicsDriveThread.hpp" />
     <ClInclude Include="PhysicsEngine.hpp" />
     <ClInclude Include="Sim.hpp" />
     <ClInclude Include="UDPCommandListener.hpp" />

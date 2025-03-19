@@ -5,6 +5,7 @@
 #include "Car.hpp"
 #include "CarAvatar.hpp"
 #include "UDPCommandListener.hpp"
+#include "PhysicsDriveThread.hpp"
 #include <iostream>
 #include <acs_cosim/interface/server.hpp>
 #include <acs_cosim/interface/constants.hpp>
@@ -23,6 +24,7 @@ using namespace acs_cosim::interface::constants;
 
 AcsServer acs_server("tcp://*:5555");
 UDPCommandListener* commandListener = nullptr;
+PhysicsDriveThread* physicsDriveThread = nullptr;
 
 // Hooked functions
 typedef void (*getCarPhysicsStateT)(Car*, CarPhysicsState*);
@@ -43,16 +45,33 @@ simGetCarT originalSimGetCarFunction;
 typedef void (*goToSpawnPositionT)(void*, std::wstring);
 goToSpawnPositionT originalGoToSpawnPosition;
 
+typedef void (*physicsDriveThreadRunT)(PhysicsDriveThread*);
+physicsDriveThreadRunT originalPhysicsDriveThreadRun;
+
 static Parameters params;
 
 bool firstStep = true;
+std::chrono::milliseconds simulationTime(0);
 
 void sendSimulationStateMsg(Car* car) {
 	CarPhysicsState cps;
 	getCarPhysicsState(car, &cps);
-	SimulationState simulationState(car->ksPhysics->physicsTime, cps);
+	SimulationState simulationState(simulationTime, cps);
 	SimulationStateMsg simulationStateMsg(simulationState);
 	acs_server.send_message(&simulationStateMsg);
+}
+
+/**
+ * The only purpose of this function is to find the address of PhysicsDriveThread
+ */
+void hookedPhysicsDriveThreadRun(PhysicsDriveThread* pdt) {
+	if (physicsDriveThread == nullptr) {
+		physicsDriveThread = pdt;
+	}
+
+	if (originalPhysicsDriveThreadRun) {
+		originalPhysicsDriveThreadRun(pdt);
+	}
 }
 
 /**
@@ -81,6 +100,10 @@ void hookedCarPollControls(Car* car, float period) {
 		// To do so, this function (hookedCarPollControls) needs to return. When this function is called again
 		// during the next simulation step, it sends the updated SimulationStateMsg to the client.
 		sendSimulationStateMsg(car);
+		
+		// simulationTime is incremented here because we want to increment whenever this function is called
+		// exept for the first step
+		simulationTime += std::chrono::milliseconds(3);
 	}
 	else {
 		firstStep = false;
@@ -121,6 +144,10 @@ void hookedCarPollControls(Car* car, float period) {
 			break;
 		}
 	} while (!advance);
+
+	if (physicsDriveThread) {
+		physicsDriveThread->currentTime = car->ksPhysics->gameTime;
+	}
 }
 
 void dll_attached(HMODULE hModule) {
@@ -187,12 +214,21 @@ void dll_attached(HMODULE hModule) {
 		std::cerr << "Failed to find function CarAvatar::goToSpawnPosition" << std::endl;
 	}
 
+	void* physicsDriveThreadRun = DetourFindFunction(moduleName.c_str(), "PhysicsDriveThread::run");
+	if (physicsDriveThreadRun) {
+		originalPhysicsDriveThreadRun = (physicsDriveThreadRunT)physicsDriveThreadRun;
+	}
+	else {
+		std::cerr << "Failed to find function PhysicsDriveThread::run" << std::endl;
+	}
+
 	// Hooking delle funzioni
 	if (acquireControlsAddress) {
 		DetourTransactionBegin();
 		DetourUpdateThread(GetCurrentThread());
 		DetourAttach(&(PVOID&)originalCarPollControlsFunction, hookedCarPollControls);
 		DetourAttach(&(PVOID&)originalCommandListenerUpdateFunction, hookedCommandListenerUpdateFunction);
+		DetourAttach(&(PVOID&)originalPhysicsDriveThreadRun, hookedPhysicsDriveThreadRun);
 		DetourTransactionCommit();
 	}
 }
