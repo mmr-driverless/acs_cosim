@@ -31,11 +31,8 @@
 *.out
 *.app
 
-# Dependencies directory
-Dependencies/*
-!Dependencies/acs_cosim_interface
-
 # Ignore build directories
+out/
 Debug/
 Release/
 x64/

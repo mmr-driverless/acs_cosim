@@ -1,0 +1,14 @@
+diff --git a/src/modules.cpp b/src/modules.cpp
+index 52fc2cf..7af3edb 100644
+--- a/src/modules.cpp
++++ b/src/modules.cpp
+@@ -101,9 +101,6 @@ PDETOUR_SYM_INFO DetourLoadImageHlp(VOID)
+     }
+ 
+     symInfo.pfImagehlpApiVersionEx(&av);
+-    if (av.MajorVersion < API_VERSION_NUMBER) {
+-        goto abort;
+-    }
+ 
+     if (!symInfo.pfSymInitialize(symInfo.hProcess, NULL, FALSE)) {
+         // We won't retry the initialize if it fails.
