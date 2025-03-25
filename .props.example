@@ -1,5 +1,0 @@
-<Project  xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-    <PropertyGroup>
-        <ASSETTO_CORSA_PARENT_DIR>C:\Games\mmr_assettocorsa</ASSETTO_CORSA_PARENT_DIR>
-    </PropertyGroup>
-</Project>
