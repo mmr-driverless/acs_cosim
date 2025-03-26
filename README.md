@@ -10,10 +10,12 @@ Remember to clone using `--recurse-submodules` (or `--recursive`) to correctly i
 Alternatively, if you already cloned the repository, you can initialize them by running `git submodule update --init --recursive`.
 
 Open the repository folder with Visual Studio.
+
 Configure the CMake cache either via "Project" in the toolbar or via context menu on the root CMakeLists.txt.
 
-You can build the project via "Build" in the toolbar and clicking "Build All".
-You can install the project via "Build" in the toolbar and clicking "Install". This will create the release which you can zip up and upload to GitHub.
+Build the project via "Build" in the toolbar and clicking "Build All".
+
+Install the project via "Build" in the toolbar and clicking "Install". This will create the release which you can zip up and upload to GitHub.
 
 ### Tools
 
