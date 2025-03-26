@@ -1,20 +1,21 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
-#include "pch.h"
-#include "MMRSimulatorDll.h"
-#include "detours.h"
-#include "Car.hpp"
-#include "CarAvatar.hpp"
-#include "UDPCommandListener.hpp"
-#include "PhysicsDriveThread.hpp"
-#include <iostream>
-#include <acs_cosim/interface/server.hpp>
-#include <acs_cosim/interface/constants.hpp>
 
+#include <iostream>
 #include <fstream>
 #include <chrono>
 #include <iomanip>
 #include <string>
 
+#include <windows.h>
+#include <detours.h>
+
+#include <acs_cosim/interface/server.hpp>
+#include <acs_cosim/interface/constants.hpp>
+
+#include "Car.hpp"
+#include "CarAvatar.hpp"
+#include "UDPCommandListener.hpp"
+#include "PhysicsDriveThread.hpp"
 #include "Parameters.h"
 
 using namespace acs_cosim::interface::data;
