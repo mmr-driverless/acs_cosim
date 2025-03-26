@@ -11,9 +11,13 @@ ExternalProject_Add(
     BUILD_BYPRODUCTS "<BINARY_DIR>/include/detours.h"
 )
 
-add_library (Detours IMPORTED STATIC)
+ExternalProject_Get_property(DetoursEP BINARY_DIR)
+file (MAKE_DIRECTORY ${BINARY_DIR}/lib.X64)
+file (MAKE_DIRECTORY ${BINARY_DIR}/include)
+
+add_library (Detours IMPORTED STATIC GLOBAL)
 add_dependencies (Detours DetoursEP)
 set_target_properties (Detours PROPERTIES
-    IMPORTED_LOCATION ${CMAKE_CURRENT_LIST_DIR}/Detours/lib.X64/detours.lib
-    INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_LIST_DIR}/Detours/include
+    IMPORTED_LOCATION ${BINARY_DIR}/lib.X64/detours.lib
+    INTERFACE_INCLUDE_DIRECTORIES ${BINARY_DIR}/include
 )

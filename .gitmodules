@@ -1,3 +1,6 @@
 [submodule "Dependencies/Detours"]
 	path = Dependencies/Detours/Detours
 	url = https://github.com/microsoft/Detours
+[submodule "Dependencies/libzmq"]
+	path = Dependencies/libzmq
+	url = https://github.com/zeromq/libzmq/

@@ -11,7 +11,7 @@ endif()
 
 project ("CMakeProject1")
 
-
-
 # Include sub-projects.
 add_subdirectory("Dependencies")
+
+# target_link_libraries(mytest PRIVATE Detours libzmq-static)
