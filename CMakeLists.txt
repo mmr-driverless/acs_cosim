@@ -12,4 +12,5 @@ endif()
 project ("acs_cosim")
 
 # Include sub-projects.
-add_subdirectory("Dependencies")
+add_subdirectory ("Dependencies")
+add_subdirectory ("acs_cosim_launcher")
