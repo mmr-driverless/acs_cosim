@@ -11,6 +11,7 @@
 
 #include <acs_cosim/interface/server.hpp>
 #include <acs_cosim/interface/constants.hpp>
+#include <acs_cosim/interface/version.hpp>
 
 #include "Car.hpp"
 #include "CarAvatar.hpp"
@@ -23,7 +24,6 @@ using namespace acs_cosim::interface::server;
 using namespace acs_cosim::interface::messages;
 using namespace acs_cosim::interface::constants;
 
-AcsServer acs_server("tcp://*:5555");
 UDPCommandListener* commandListener = nullptr;
 PhysicsDriveThread* physicsDriveThread = nullptr;
 
@@ -54,12 +54,10 @@ static Parameters params;
 bool firstStep = true;
 std::chrono::milliseconds simulationTime(0);
 
-void sendSimulationStateMsg(Car* car) {
+void sendSimulationStateMsg(AcsServer& acs_server, Car* car) {
 	CarPhysicsState cps;
 	getCarPhysicsState(car, &cps);
-	SimulationState simulationState(simulationTime, cps);
-	SimulationStateMsg simulationStateMsg(simulationState);
-	acs_server.send_message(&simulationStateMsg);
+	acs_server.send_simulation_state(SimulationState(simulationTime, cps));
 }
 
 /**
@@ -96,11 +94,13 @@ void hookedCommandListenerUpdateFunction(UDPCommandListener* localCommandListene
 }
 
 void hookedCarPollControls(Car* car, float period) {
+	static AcsServer acs_server("tcp://*:5555");
+
 	if (!firstStep) {
 		// Vehicle state is sent here because the step needs to be concluded before sending the state to AcsClient.
 		// To do so, this function (hookedCarPollControls) needs to return. When this function is called again
 		// during the next simulation step, it sends the updated SimulationStateMsg to the client.
-		sendSimulationStateMsg(car);
+		sendSimulationStateMsg(acs_server, car);
 		
 		// simulationTime is incremented here because we want to increment whenever this function is called
 		// exept for the first step
@@ -133,11 +133,18 @@ void hookedCarPollControls(Car* car, float period) {
 			break;
 		case MsgType::GetState:
 			advance = false;  // Do not step the simulation
-			sendSimulationStateMsg(car);
+			sendSimulationStateMsg(acs_server, car);
 			break;
 		case MsgType::Control: {
 			ControlMsg* msg = (ControlMsg*)buf;
 			car->controls = msg->control;
+			break;
+		}
+		case MsgType::ServerInformationRequest: {
+			advance = false;
+			ServerInformation info;
+			memcpy(info.version, acs_cosim::interface::INTERFACE_VERSION, sizeof(acs_cosim::interface::interface_version_t));
+			acs_server.send_server_information(info);
 			break;
 		}
 		default:
@@ -159,15 +166,16 @@ void dll_attached(HMODULE hModule) {
 	freopen_s(&fDummy, "CONOUT$", "w", stderr);
 	freopen_s(&fDummy, "CONOUT$", "w", stdout);
 
-	std::wcerr << "ACS_ROOT_DIR = " << params.acs_root_dir() << std::endl;
-
-
 	// Form ModuleName
-	std::string moduleName = (params.acs_root_dir() / "assettocorsa" / "acs.exe").string();
-	std::cerr << "Module Name: " << moduleName << std::endl;
+	char moduleName[MAX_PATH];
+
+	if (GetModuleFileNameA(NULL, moduleName, sizeof(moduleName)) <= 0) {
+		std::cerr << "Failed to retrieve module name (Error " << GetLastError() << ")" << std::endl;
+		return;
+	}
 
 	// Ricerca delle funzioni
-	void* getCarPhysicsStateAddress = DetourFindFunction(moduleName.c_str(), "Car::getPhysicsState");
+	void* getCarPhysicsStateAddress = DetourFindFunction(moduleName, "Car::getPhysicsState");
 	if (getCarPhysicsStateAddress) {
 		getCarPhysicsState = (getCarPhysicsStateT)getCarPhysicsStateAddress;
 	}
@@ -175,7 +183,7 @@ void dll_attached(HMODULE hModule) {
 		std::cerr << "Failed to find function Car::getPhysicsState" << std::endl;
 	}
 
-	void* acquireControlsAddress = DetourFindFunction(moduleName.c_str(), "Car::pollControls");
+	void* acquireControlsAddress = DetourFindFunction(moduleName, "Car::pollControls");
 	if (acquireControlsAddress) {
 		originalCarPollControlsFunction = (carPollControlsT)acquireControlsAddress;
 	}
@@ -183,7 +191,7 @@ void dll_attached(HMODULE hModule) {
 		std::cerr << "Failed to find function Car::pollControls" << std::endl;
 	}
 
-	void* commandListenerUpdate = DetourFindFunction(moduleName.c_str(), "UDPCommandListener::update");
+	void* commandListenerUpdate = DetourFindFunction(moduleName, "UDPCommandListener::update");
 	if (commandListenerUpdate) {
 		originalCommandListenerUpdateFunction = (commandListenerUpdateT)commandListenerUpdate;
 	}
@@ -191,7 +199,7 @@ void dll_attached(HMODULE hModule) {
 		std::cerr << "Failed to find function UDPCommandListener::update" << std::endl;
 	}
 
-	void* simStartGame = DetourFindFunction(moduleName.c_str(), "Sim::startGame");
+	void* simStartGame = DetourFindFunction(moduleName, "Sim::startGame");
 	if (simStartGame) {
 		originalSimStartGameFunction = (simStartGameT)simStartGame;
 	}
@@ -199,7 +207,7 @@ void dll_attached(HMODULE hModule) {
 		std::cerr << "Failed to find function Sim::startGame" << std::endl;
 	}
 
-	void* simGetCar = DetourFindFunction(moduleName.c_str(), "Sim::getCar");
+	void* simGetCar = DetourFindFunction(moduleName, "Sim::getCar");
 	if (simGetCar) {
 		originalSimGetCarFunction = (simGetCarT)simGetCar;
 	}
@@ -207,7 +215,7 @@ void dll_attached(HMODULE hModule) {
 		std::cerr << "Failed to find function Sim::getCar" << std::endl;
 	}
 
-	void* goToSpawnPosition = DetourFindFunction(moduleName.c_str(), "CarAvatar::goToSpawnPosition");
+	void* goToSpawnPosition = DetourFindFunction(moduleName, "CarAvatar::goToSpawnPosition");
 	if (goToSpawnPosition) {
 		originalGoToSpawnPosition = (goToSpawnPositionT)goToSpawnPosition;
 	}
@@ -215,7 +223,7 @@ void dll_attached(HMODULE hModule) {
 		std::cerr << "Failed to find function CarAvatar::goToSpawnPosition" << std::endl;
 	}
 
-	void* physicsDriveThreadRun = DetourFindFunction(moduleName.c_str(), "PhysicsDriveThread::run");
+	void* physicsDriveThreadRun = DetourFindFunction(moduleName, "PhysicsDriveThread::run");
 	if (physicsDriveThreadRun) {
 		originalPhysicsDriveThreadRun = (physicsDriveThreadRunT)physicsDriveThreadRun;
 	}

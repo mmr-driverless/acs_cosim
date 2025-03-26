@@ -69,10 +69,9 @@ void runAssettoCorsa(const std::filesystem::path& acs_dir_path) {
 	STARTUPINFO si = { sizeof(si) };
 	PROCESS_INFORMATION pi = { 0 };
 
-
 	std::wstring acs_dir = acs_dir_path.wstring();
 	std::wstring exe_path = (acs_dir_path / "acs.exe").wstring();
-	std::string dll_path = (acs_dir_path / "MMR_Simulator_DLL.dll").string();
+	std::string dll_path = (acs_dir_path / "acs_cosim_dll.dll").string();
 
 	// Iniezione della DLL nel processo
 	BOOL result = DetourCreateProcessWithDllEx(
@@ -113,9 +112,6 @@ int actual_main(int argc, char* argv[]) {
 	}
 
 	std::filesystem::path acs_root_dir(argv[1]);
-
-	SetEnvironmentVariable(L"ACS_ROOT_DIR", acs_root_dir.c_str());
-
 	// Avvio di Assetto Corsa
 	std::cerr << "Launching Assetto Corsa" << std::endl;
 	runAssettoCorsa(acs_root_dir / "assettocorsa");
