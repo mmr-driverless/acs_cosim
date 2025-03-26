@@ -1,6 +1,6 @@
 [submodule "Dependencies/Detours"]
 	path = Dependencies/Detours/Detours
 	url = https://github.com/microsoft/Detours
-[submodule "Dependencies/libzmq"]
-	path = Dependencies/libzmq
-	url = https://github.com/zeromq/libzmq/
+[submodule "Dependencies/acs_cosim_interface"]
+	path = Dependencies/acs_cosim_interface
+	url = https://github.com/mmr-driverless/acs_cosim_interface
